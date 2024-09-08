@@ -80,26 +80,44 @@ namespace DesktopMemos
         /// <param name="e"></param>
         private void newItem_Click(object sender, EventArgs e)
         {
-            string info = memoMessageTextBox.Text;
-            int hour = ((int)numericUpDownHour.Value),
-                minute = ((int)numericUpDownMinute.Value),
-                second = ((int)numericUpDownSecond.Value);
-            ListViewItem newItem = addNewMemoToList(info, hour, minute, second);
-            numericUpDownClear();
-            addNewMemoToDir(info, hour, minute, second, newItem);
+            addNewMemo(memoMessageTextBox.Text, getInputTime());
         }
 
         /// <summary>
-        /// 向momo列表里面添加新的一项
+        /// 获取三个数字输入框中输入的时间
+        /// </summary>
+        /// <returns>返回输入的时间</returns>
+        private TimeSpan getInputTime()
+        {
+            int hour = ((int)numericUpDownHour.Value),
+                minute = ((int)numericUpDownMinute.Value),
+                second = ((int)numericUpDownSecond.Value);
+            return new TimeSpan(hour, minute, second);
+        }
+
+        /// <summary>
+        /// 添加新待办事项
+        /// </summary>
+        /// <param name="message">代办事项信息</param>
+        /// <param name="countDown">倒计时</param>
+        private void addNewMemo(string message,TimeSpan countDown)
+        {
+            ListViewItem newItem = addNewMemoToList(message, countDown);
+            numericUpDownClear();
+            addNewMemoToDir(message, countDown, newItem);
+        }
+
+        /// <summary>
+        /// 向memos列表里面添加新的一项
         /// </summary>
         /// <param name="message">信息</param>
         /// <param name="hour">时</param>
         /// <param name="minute">分</param>
         /// <param name="second">秒</param>
-        private ListViewItem addNewMemoToList(string message,int hour,int minute,int second)
+        private ListViewItem addNewMemoToList(string message,TimeSpan countDown)
         {
             ListViewItem newItem = new ListViewItem(message);
-            newItem.SubItems.Add($"{hour}h{minute}m{second}s");
+            newItem.SubItems.Add($"{countDown}");
             listView1.Items.Add(newItem);
             return newItem;
         }
@@ -122,12 +140,10 @@ namespace DesktopMemos
         /// <param name="hour">时</param>
         /// <param name="minute">分</param>
         /// <param name="second">秒</param>
-        private void addNewMemoToDir(string message,int hour,int minute,int second,ListViewItem newItem)
+        private void addNewMemoToDir(string message,TimeSpan countDown,ListViewItem newItem)
         {
             DateTime targetTime; // 目标时间
-            TimeSpan countdownTime; // 倒计时时长
-            countdownTime = new TimeSpan(hour, minute, second); // 倒计时30秒
-            targetTime = DateTime.Now.Add(countdownTime); // 设置目标时间
+            targetTime = DateTime.Now.Add(countDown); // 设置目标时间
             FormTimer timer = new FormTimer();
             timer.Interval = 1000; // 每秒触发一次
             timer.Tick += (sender, e) =>
