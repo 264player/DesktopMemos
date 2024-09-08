@@ -11,11 +11,7 @@ namespace DesktopMemos
         /// <summary>
         /// 桌面提示
         /// </summary>
-        private NotifyIcon notifyIcon;
-        /// <summary>
-        /// 后台菜单
-        /// </summary>
-        private ContextMenuStrip contextMenuStrip;
+        private NotifyIcon? notifyIcon;
         /// <summary>
         /// 是否在panel内的标志
         /// </summary>
@@ -30,30 +26,36 @@ namespace DesktopMemos
         public MainForm()
         {
             InitializeComponent();
+            initialAppNotify();
+            ShowInTaskbar = false; // 隐藏任务栏图标
+        }
 
-            // 隐藏任务栏图标
-            this.ShowInTaskbar = false;
-
+        /// <summary>
+        /// 初始化系统托盘图标
+        /// </summary>
+        private void initialAppNotify()
+        {
             // 创建托盘图标
             notifyIcon = new NotifyIcon();
             notifyIcon.Icon = new Icon("D:\\BandiZip\\icons\\default\\001.ico");  // 替换为你自己的图标
             notifyIcon.Visible = true;
-            notifyIcon.Text = "Sticky Notes App";
+            notifyIcon.Text = "桌面待办事项";
+            // 双击托盘图标显示应用程序
+            notifyIcon.DoubleClick += ShowApp;
+            notifyIcon.ContextMenuStrip = createNotifyMenu();
+        }
 
-            // 创建托盘右键菜单
-            contextMenuStrip = new ContextMenuStrip();
+        /// <summary>
+        /// 创建用于系统托盘的菜单
+        /// </summary>
+        /// <returns>系统托盘菜单</returns>
+        private ContextMenuStrip createNotifyMenu()
+        {
+            ContextMenuStrip contextMenuStrip = new ContextMenuStrip();
             contextMenuStrip.Items.Add("显示", null, ShowApp);
             contextMenuStrip.Items.Add("关闭", null, HideApp);
             contextMenuStrip.Items.Add("退出", null, ExitApp);
-
-            // 将 ContextMenuStrip 绑定到 NotifyIcon
-            notifyIcon.ContextMenuStrip = contextMenuStrip;
-
-            // 双击托盘图标显示应用程序
-            notifyIcon.DoubleClick += ShowApp;
-
-
-            
+            return contextMenuStrip;
         }
 
         /// <summary>
@@ -63,14 +65,12 @@ namespace DesktopMemos
         /// <param name="message">提示信息</param>
         private void ShowNotification(string title, string message)
         {
-            using(NotifyIcon notifyIcon = new NotifyIcon())
+            if(notifyIcon != null)
             {
-                notifyIcon.Visible = true;
-                notifyIcon.Icon = SystemIcons.Information; // 可以设置一个自定义图标
                 notifyIcon.BalloonTipTitle = title;
                 notifyIcon.BalloonTipText = message;
                 notifyIcon.ShowBalloonTip(3000); // 显示 3 秒
-            }
+            }else MessageBox.Show("eror:未正确初始化！");
         }
 
         /// <summary>
@@ -111,9 +111,7 @@ namespace DesktopMemos
         /// 向memos列表里面添加新的一项
         /// </summary>
         /// <param name="message">信息</param>
-        /// <param name="hour">时</param>
-        /// <param name="minute">分</param>
-        /// <param name="second">秒</param>
+        /// <param name="countDown">倒计时</param>
         private ListViewItem addNewMemoToList(string message,TimeSpan countDown)
         {
             ListViewItem newItem = new ListViewItem(message);
@@ -134,29 +132,25 @@ namespace DesktopMemos
         }
 
         /// <summary>
-        /// 向字典里面加入新的定时器
+        /// 向字典里面加入新的定时器，精度为1秒
         /// </summary>
         /// <param name="message">提示信息</param>
-        /// <param name="hour">时</param>
-        /// <param name="minute">分</param>
-        /// <param name="second">秒</param>
+        /// <param name="newItem">倒计时</param>
         private void addNewMemoToDir(string message,TimeSpan countDown,ListViewItem newItem)
         {
-            DateTime targetTime; // 目标时间
-            targetTime = DateTime.Now.Add(countDown); // 设置目标时间
+            DateTime targetTime = DateTime.Now.Add(countDown); // 设置目标时间;
             FormTimer timer = new FormTimer();
             timer.Interval = 1000; // 每秒触发一次
             timer.Tick += (sender, e) =>
             {
                 if(targetTime - DateTime.Now <= new TimeSpan(0))
                 {
-                    ShowNotification(message, message);
+                    ShowNotification("代办事项到期提醒", message);
                     timer.Stop();
                     timers.Remove(timer);
                 }
             }; // 绑定 Tick 事件
             timers[timer] = newItem;
-            // 启动定时器
             timer.Start();
         }
         #region Events
@@ -165,20 +159,30 @@ namespace DesktopMemos
         private Point dragCursorPoint;
         private Point dragFormPoint;
 
+        /// <summary>
+        /// 在form上鼠标按下时
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void Form_MouseDown(object sender, MouseEventArgs e)
         {
             dragging = true;
             dragCursorPoint = Cursor.Position;
-            dragFormPoint = this.Location;
+            dragFormPoint = Location;
         }
 
+        /// <summary>
+        /// 在form上鼠标移动时
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void Form_MouseMove(object sender, MouseEventArgs e)
         {
             // 获取鼠标在Panel中的位置
-            Point mousePosition = this.PointToClient(Cursor.Position);
+            Point mousePosition = PointToClient(Cursor.Position);
 
             // 判断鼠标是否在Panel的区域内
-            if (this.ClientRectangle.Contains(this.PointToClient(mousePosition)))
+            if (ClientRectangle.Contains(PointToClient(mousePosition)))
             {
                 // 如果鼠标在Panel内，更新标志
                 isMouseInsidePanel = true;
@@ -195,53 +199,72 @@ namespace DesktopMemos
             if (dragging)
             {
                 Point diff = Point.Subtract(Cursor.Position, new Size(dragCursorPoint));
-                this.Location = Point.Add(dragFormPoint, new Size(diff));
+                Location = Point.Add(dragFormPoint, new Size(diff));
             }
         }
 
+        /// <summary>
+        /// 在form上鼠标起来时
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void Form_MouseUp(object sender, MouseEventArgs e)
         {
             dragging = false;
-            //NotifyIcon notifyIcon = new NotifyIcon();
-            //notifyIcon.Visible = true;
-            //notifyIcon.Icon = SystemIcons.Information; // 可以设置一个自定义图标
-            //notifyIcon.BalloonTipTitle = "备忘提醒";
-            //notifyIcon.BalloonTipText = "这是你的备忘提醒内容";
-            //notifyIcon.ShowBalloonTip(3000); // 显示 3 秒
-
         }
 
-        // 显示窗体的方法
-        private void ShowApp(object sender, EventArgs e)
+        /// <summary>
+        /// 显示窗体
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void ShowApp(object? sender, EventArgs e)
         {
-            this.Show();
-            this.WindowState = FormWindowState.Normal;
-            this.Activate(); // 激活并显示窗体
+            Show();
+            WindowState = FormWindowState.Normal;
+            Activate(); // 激活并显示窗体
         }
 
-        // 退出应用程序的方法
-        private void ExitApp(object sender, EventArgs e)
+        /// <summary>
+        /// 退出程序
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void ExitApp(object? sender, EventArgs e)
         {
-            notifyIcon.Visible = false; // 隐藏托盘图标
             Application.Exit(); // 退出应用程序
         }
 
-        private void HideApp(object sender, EventArgs e)
+        /// <summary>
+        /// 隐藏窗体
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void HideApp(object? sender, EventArgs e)
         {
-            this.Hide();
+            Hide();
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void notify_Hover(object sender, EventArgs e)
         {
-            this.Size = new Size(Size.Width, 270);
+            Size = new Size(Size.Width, 270);
         }
 
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void notify_MouseLeave(object sender, EventArgs e)
         {
             if (!isMouseInsidePanel)
             {
-                this.Size = new Size(Size.Width, 150);
+                Size = new Size(Size.Width, 150);
             }
         }
         #endregion
