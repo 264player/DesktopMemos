@@ -17,9 +17,13 @@ namespace DesktopMemos
         /// </summary>
         private bool isMouseInsidePanel = true;
         /// <summary>
+        /// 是否锁定窗口位置和大小
+        /// </summary>
+        bool isLock = false;
+        /// <summary>
         /// 保存Timer的列表
         /// </summary>
-        private Dictionary<FormTimer,ListViewItem> timers = new Dictionary<FormTimer,ListViewItem>();
+        private Dictionary<FormTimer, ListViewItem> timers = new Dictionary<FormTimer, ListViewItem>();
         /// <summary>
         /// 主窗口构造方法
         /// </summary>
@@ -65,12 +69,13 @@ namespace DesktopMemos
         /// <param name="message">提示信息</param>
         private void ShowNotification(string title, string message)
         {
-            if(notifyIcon != null)
+            if (notifyIcon != null)
             {
                 notifyIcon.BalloonTipTitle = title;
                 notifyIcon.BalloonTipText = message;
                 notifyIcon.ShowBalloonTip(3000); // 显示 3 秒
-            }else MessageBox.Show("eror:未正确初始化！");
+            }
+            else MessageBox.Show("eror:未正确初始化！");
         }
 
         /// <summary>
@@ -100,7 +105,7 @@ namespace DesktopMemos
         /// </summary>
         /// <param name="message">代办事项信息</param>
         /// <param name="countDown">倒计时</param>
-        private void addNewMemo(string message,TimeSpan countDown)
+        private void addNewMemo(string message, TimeSpan countDown)
         {
             ListViewItem newItem = addNewMemoToList(message, countDown);
             numericUpDownClear();
@@ -112,7 +117,7 @@ namespace DesktopMemos
         /// </summary>
         /// <param name="message">信息</param>
         /// <param name="countDown">倒计时</param>
-        private ListViewItem addNewMemoToList(string message,TimeSpan countDown)
+        private ListViewItem addNewMemoToList(string message, TimeSpan countDown)
         {
             ListViewItem newItem = new ListViewItem(message);
             newItem.SubItems.Add($"{countDown}");
@@ -136,23 +141,48 @@ namespace DesktopMemos
         /// </summary>
         /// <param name="message">提示信息</param>
         /// <param name="newItem">倒计时</param>
-        private void addNewMemoToDir(string message,TimeSpan countDown,ListViewItem newItem)
+        private void addNewMemoToDir(string message, TimeSpan countDown, ListViewItem newItem)
         {
             DateTime targetTime = DateTime.Now.Add(countDown); // 设置目标时间;
             FormTimer timer = new FormTimer();
             timer.Interval = 1000; // 每秒触发一次
             timer.Tick += (sender, e) =>
             {
-                if(targetTime - DateTime.Now <= new TimeSpan(0))
+                if (targetTime - DateTime.Now <= new TimeSpan(0))
                 {
                     ShowNotification("代办事项到期提醒", message);
                     timer.Stop();
+                    listView1.Items.Remove(timers[timer]);
                     timers.Remove(timer);
                 }
+                upDateCountDown();
             }; // 绑定 Tick 事件
             timers[timer] = newItem;
             timer.Start();
         }
+
+        /// <summary>
+        /// 更新待办事项的列表
+        /// </summary>
+        private void upDateCountDown()
+        {
+            foreach (FormTimer timer in timers.Keys)
+            {
+                resetCountDown(timers[timer]);
+            }
+        }
+
+        /// <summary>
+        /// 重新设置listviewitem项的时间
+        /// </summary>
+        /// <param name="item"></param>
+        private void resetCountDown(ListViewItem item)
+        {
+            TimeSpan countDown = TimeSpan.Parse(item.SubItems[1].Text);
+            countDown = countDown - TimeSpan.FromSeconds(1);
+            item.SubItems[1].Text = countDown.ToString();
+        }
+
         #region Events
 
         private bool dragging = false;
@@ -178,6 +208,8 @@ namespace DesktopMemos
         /// <param name="e"></param>
         private void Form_MouseMove(object sender, MouseEventArgs e)
         {
+            if (isLock)
+                return;
             // 获取鼠标在Panel中的位置
             Point mousePosition = PointToClient(Cursor.Position);
 
@@ -270,6 +302,98 @@ namespace DesktopMemos
         #endregion
 
 
+        /// <summary>
+        /// 菜单选择透明度
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void menuOpacity(object sender, EventArgs e)
+        {
+            clearOpacityChecked();
+            ToolStripMenuItem? menuItem = sender as ToolStripMenuItem;
+            if (menuItem != null)
+            {
+                menuItem.Checked = true;
+                Opacity = double.Parse(menuItem.Text.Split('%')[0]) / 100;
+            }
+        }
 
+        /// <summary>
+        /// 选择唯一一个透明度
+        /// </summary>
+        private void clearOpacityChecked()
+        {
+            opacity20.Checked = false;
+            opacity40.Checked = false;
+            opacity60.Checked = false;
+            opacity80.Checked = false;
+            opacity100.Checked = false;
+        }
+
+        /// <summary>
+        /// 菜单选择字体大小
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void menuFontSize(object sender, EventArgs e)
+        {
+            clearFontSizeChecked();
+            ToolStripMenuItem? menuItem = sender as ToolStripMenuItem;
+            if (menuItem != null)
+            {
+                menuItem.Checked = true;
+                Font = new Font(Font.FontFamily, fontSize(menuItem.Text.ToLower().First()));
+            }
+        }
+
+        /// <summary>
+        /// 通过字体大小的类型，获取尺寸
+        /// </summary>
+        /// <param name="fontType">字体大小类型</param>
+        /// <returns>字体大小类型对应的尺寸</returns>
+        private float fontSize(char fontType)
+        {
+            switch (fontType)
+            {
+                case 's': return 7;
+                case 'm': return 8;
+                case 'l': return 9;
+                case 'v': return 10;
+                default: return 8;
+            }
+        }
+
+        /// <summary>
+        /// 选择唯一一个字体大小
+        /// </summary>
+        private void clearFontSizeChecked()
+        {
+            smallSize.Checked = false;
+            mediaSize.Checked = false;
+            largeSize.Checked = false;
+            veryLargeSize.Checked = false;
+        }
+
+        /// <summary>
+        /// 控制窗口是否一直停留在最上层,每次点击会对这个属性求反
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void menuAlwaysOnTop(object sender, EventArgs e)
+        {
+            toolStripMenuItemAlwaysOnTop.Checked = !toolStripMenuItemAlwaysOnTop.Checked;
+            TopMost = toolStripMenuItemAlwaysOnTop.Checked;
+        }
+
+        /// <summary>
+        /// 是否锁定form的位置和大小，每次点击会对此属性求反
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void toolStripMenuItemLock_Click(object sender, EventArgs e)
+        {
+            toolStripMenuItemLock.Checked = !toolStripMenuItemLock.Checked;
+            isLock = toolStripMenuItemLock.Checked;
+        }
     }
 }
