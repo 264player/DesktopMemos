@@ -8,6 +8,8 @@ namespace DesktopMemos
     /// </summary>
     public partial class MainForm : Form
     {
+
+        private MemosManager memosManager = MemosManager.Instance;
         /// <summary>
         /// ×ÀÃæÌáÊ¾
         /// </summary>
